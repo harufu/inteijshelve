@@ -10,6 +10,8 @@
 |queue                     |
 |schedule.raw.message.queue|
 
+
+
 |check flights in db                                                                                                                                                                                                                                                               |
 |carrier code|flight number|leg status|tail number|flight date|local scheduled departure time|scheduled departure time|departure airport|arrival airport|scheduled arrival time|local scheduled arrival time|leg sequence number|service type|fleet|market configuration|fitnesseId|
 
