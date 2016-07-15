@@ -1,0 +1,186 @@
+!include -c .NextGen.StaticDataSetup
+
+|open integration jms connection|
+
+|Create Message Producer For Queue|
+|queue name                       |
+|schedule.raw.message.queue       |
+
+|Clean Queue               |
+|queue                     |
+|schedule.raw.message.queue|
+
+
+
+|check flights in db                                                                                                                                                                                                                                                               |
+|carrier code|flight number|leg status|tail number|flight date|local scheduled departure time|scheduled departure time|departure airport|arrival airport|scheduled arrival time|local scheduled arrival time|leg sequence number|service type|fleet|market configuration|fitnesseId|
+
+#################### DEFINING MESSAGES ################
+----
+!4 Message to be send:
+!define ssmNew1  {!-SSM
+UTC
+11JUL00222C001
+NEW XASM
+SQ9999L
+14DEC 17DEC 1234567
+J 757 FCYML.F20C120M30
+SFO0200 SYD2000
+SYD2200 SFO0700-!}
+----
+!4 Message to be send:
+!define ssmEqt1  {!-SSM
+UTC
+11JUL00222C002
+EQT
+SQ9999L
+19DEC 18DEC 1234567
+G 777 FY/FO.FCM
+SYD/SFO -!}
+----
+!4 Message to be send:
+!define ssmCnl1  {!-SSM
+UTC
+11JUL00222C004
+CNL
+SQ9999L
+15DEC 17DEC 13-!}
+----
+!4 Message to be send:
+!define ssmRpl1  {!-SSM
+UTC
+11JUL00222C005
+RPL
+SQ9999L
+14DEC 15DEC 1234567
+G 777 FY/FO.FCM
+SFO0200 SYD2000
+SYD2200 SFO0700-!}
+----
+!4 Message to be send:
+!define ssmFlt3  {!-SSM
+UTC
+11JUL00222E007
+FLT
+SQ9999L
+17DEC 17DEC
+AA9999L-!}
+----
+##########################################################
+
+|Set Message Processing Group Timeout|120000|
+
+!4 Sending message to JMS Queue:
+|Send Message Into Jms Queue|
+|message                    |
+|${ssmEqt1}                 |
+|${ssmRpl1}                 |
+|${ssmCnl1}                 |
+
+|check message trail                 |
+|status |error message               |
+|WAITING|blank                       |
+|WAITING|blank                       |
+|ERROR  |Start date is after end date|
+
+|check flights in db                                                                                                                                                                                                                                                                              |
+|carrier code|aircraft owner|flight number|leg status|tail number|flight date|local scheduled departure time|scheduled departure time|departure airport|arrival airport|scheduled arrival time|local scheduled arrival time|leg sequence number|service type|fleet|market configuration|fitnesseId|
+
+!4 ******** TIME RESET AFTER CORRECT MESSAGE *********
+
+|The time is|0605|on|04 Dec 2008|
+
+!4 Sending message to JMS Queue:
+|Send Message Into Jms Queue|
+|message                    |
+|${ssmNew1}                 |
+
+|Trigger message processing timeout|
+
+|Pause|500|
+
+|check message trail                                  |
+|status |reference number|error message               |
+|WAITING|11JUL00222C001  |blank                       |
+|ERROR  |11JUL00222C002  |Start date is after end date|
+|WAITING|11JUL00222C004  |blank                       |
+|WAITING|11JUL00222C005  |blank                       |
+
+|check flights in db                                                                                                                                                                                                                                                                              |
+|carrier code|aircraft owner|flight number|leg status|tail number|flight date|local scheduled departure time|scheduled departure time|departure airport|arrival airport|scheduled arrival time|local scheduled arrival time|leg sequence number|service type|fleet|market configuration|fitnesseId|
+
+!4 ******** TIME RESET AFTER ERROR MESSAGE *********
+
+|The time is|0610|on|04 Dec 2008|
+
+!4 Sending message to JMS Queue:
+|Send Message Into Jms Queue|
+|message                    |
+|${ssmFlt3}                 |
+
+|Trigger message processing timeout|
+
+|Pause|500|
+
+|check message trail                                        |
+|status |reference number|error message                     |
+|WAITING|11JUL00222C001  |blank                             |
+|ERROR  |11JUL00222C002  |Start date is after end date      |
+|WAITING|11JUL00222C004  |blank                             |
+|WAITING|11JUL00222C005  |blank                             |
+|ERROR  |11JUL00222E007  |Unprocessed body line: 17DEC 17DEC|
+
+|check flights in db                                                                                                                                                                                                                                                                              |
+|carrier code|aircraft owner|flight number|leg status|tail number|flight date|local scheduled departure time|scheduled departure time|departure airport|arrival airport|scheduled arrival time|local scheduled arrival time|leg sequence number|service type|fleet|market configuration|fitnesseId|
+
+!4 ******** CHECK BEFORE TIMEOUT *********
+
+|The time is|0611|on|04 Dec 2008|
+
+|Trigger message processing timeout|
+
+######### Pause needed because message processing is to slow and can start after assertion #########
+
+|Pause|500|
+
+|check flights in db                                                                                                                                                                                                                                                                              |
+|carrier code|aircraft owner|flight number|leg status|tail number|flight date|local scheduled departure time|scheduled departure time|departure airport|arrival airport|scheduled arrival time|local scheduled arrival time|leg sequence number|service type|fleet|market configuration|fitnesseId|
+
+|check message trail                                        |
+|status |reference number|error message                     |
+|WAITING|11JUL00222C001  |blank                             |
+|ERROR  |11JUL00222C002  |Start date is after end date      |
+|WAITING|11JUL00222C004  |blank                             |
+|WAITING|11JUL00222C005  |blank                             |
+|ERROR  |11JUL00222E007  |Unprocessed body line: 17DEC 17DEC|
+
+!4 ******** CHECK AFTER TIMEOUT *********
+
+|The time is|0612|on|04 Dec 2008|
+
+|Trigger message processing timeout|
+
+|Pause|500|
+
+|check message trail|with timeout    |180000                             |
+|status             |reference number|error message                      |
+|WARNING            |11JUL00222C001  |Incomplete messages group processed|
+|ERROR              |11JUL00222C002  |Start date is after end date       |
+|WARNING            |11JUL00222C004  |Incomplete messages group processed|
+|WARNING            |11JUL00222C005  |Incomplete messages group processed|
+|ERROR              |11JUL00222E007  |Unprocessed body line: 17DEC 17DEC |
+
+|check flights in db                                                                                                                                                                                                                                                                                               |
+|carrier code|aircraft owner|flight number|leg status|tail number|flight date|local scheduled departure time|scheduled departure time|departure airport|arrival airport|scheduled arrival time|local scheduled arrival time|leg sequence number|service type|fleet|market configuration|fitnesseId                 |
+|SQ          |SQ            |9999         |SCH       |blank      |13 Dec 2008|13 Dec 2008 18:00             |14 Dec 2008 02:00       |SFO              |SYD            |14 Dec 2008 20:00     |15 Dec 2008 06:00           |100                |G           |777  |FCM                 |SQ_9999_L_13Dec2008_100_SFO|
+|SQ          |SQ            |9999         |SCH       |blank      |13 Dec 2008|15 Dec 2008 08:00             |14 Dec 2008 22:00       |SYD              |SFO            |15 Dec 2008 07:00     |14 Dec 2008 23:00           |200                |G           |777  |FCM                 |SQ_9999_L_13Dec2008_200_SYD|
+|SQ          |SQ            |9999         |CNL       |blank      |14 Dec 2008|14 Dec 2008 18:00             |15 Dec 2008 02:00       |SFO              |SYD            |15 Dec 2008 20:00     |16 Dec 2008 06:00           |100                |J           |757  |!-F20C120M30-!      |SQ_9999_L_14Dec2008_100_SFO|
+|SQ          |SQ            |9999         |CNL       |blank      |14 Dec 2008|16 Dec 2008 08:00             |15 Dec 2008 22:00       |SYD              |SFO            |16 Dec 2008 07:00     |15 Dec 2008 23:00           |200                |J           |757  |!-F20C120M30-!      |SQ_9999_L_14Dec2008_200_SYD|
+|SQ          |SQ            |9999         |SCH       |blank      |15 Dec 2008|15 Dec 2008 18:00             |16 Dec 2008 02:00       |SFO              |SYD            |16 Dec 2008 20:00     |17 Dec 2008 06:00           |100                |J           |757  |!-F20C120M30-!      |SQ_9999_L_15Dec2008_100_SFO|
+|SQ          |SQ            |9999         |SCH       |blank      |15 Dec 2008|17 Dec 2008 08:00             |16 Dec 2008 22:00       |SYD              |SFO            |17 Dec 2008 07:00     |16 Dec 2008 23:00           |200                |J           |757  |!-F20C120M30-!      |SQ_9999_L_15Dec2008_200_SYD|
+|SQ          |SQ            |9999         |CNL       |blank      |16 Dec 2008|16 Dec 2008 18:00             |17 Dec 2008 02:00       |SFO              |SYD            |17 Dec 2008 20:00     |18 Dec 2008 06:00           |100                |J           |757  |!-F20C120M30-!      |SQ_9999_L_16Dec2008_100_SFO|
+|SQ          |SQ            |9999         |CNL       |blank      |16 Dec 2008|18 Dec 2008 08:00             |17 Dec 2008 22:00       |SYD              |SFO            |18 Dec 2008 07:00     |17 Dec 2008 23:00           |200                |J           |757  |!-F20C120M30-!      |SQ_9999_L_16Dec2008_200_SYD|
+|SQ          |SQ            |9999         |SCH       |blank      |14 Dec 2008|14 Dec 2008 18:00             |15 Dec 2008 02:00       |SFO              |SYD            |15 Dec 2008 20:00     |16 Dec 2008 06:00           |150                |G           |777  |FCM                 |SQ_9999_L_14Dec2008_150_SFO|
+|SQ          |SQ            |9999         |SCH       |blank      |14 Dec 2008|16 Dec 2008 08:00             |15 Dec 2008 22:00       |SYD              |SFO            |16 Dec 2008 07:00     |15 Dec 2008 23:00           |300                |G           |777  |FCM                 |SQ_9999_L_14Dec2008_300_SYD|
+
+|Set Message Processing Group Timeout|1000|
